@@ -7,6 +7,7 @@ uint8_t currentState = 0;
 //2 = backing up from right or center bumper press
 //3 = turning right from left bumper press
 //4 = turning left from right or center bumper press
+//5 = wheel drop state, stop moving until wheel drops are ok
 
 uint64_t backupTime = 1000000000;
 uint64_t currentBackupStartTime = 0;
@@ -14,7 +15,7 @@ uint64_t currentBackupStartTime = 0;
 uint64_t turnTime = 2000000000; 
 uint64_t currentTurnStartTime = 0;
 
-float forwardSpeed = 0.2;
+float forwardSpeed = 0.1;
 float backupSpeed = -0.2;
 float rightSpeed = -0.785;
 float leftSpeed = 0.785;
@@ -37,15 +38,30 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	//outputs have been set to some default values. Feel free 
 	//to change these constants to see how they impact the robot. 
 	
-	if(turtlebot_inputs.leftBumperPressed == 1){
+	if(turtlebot_inputs.leftBumperPressed == 1 || turtlebot_inputs.sensor0State == 1){
 		currentState = 1;
 		currentBackupStartTime = turtlebot_inputs.nanoSecs; 
-		*soundValue = RECHARGE;
 	}
-	else if(turtlebot_inputs.centerBumperPressed == 1 || turtlebot_inputs.rightBumperPressed == 1){
+	else if(turtlebot_inputs.centerBumperPressed == 1 || turtlebot_inputs.rightBumperPressed == 1|| turtlebot_inputs.sensor1State == 1 || turtlebot_inputs.sensor2State == 2){
 		currentState = 2;
 		currentBackupStartTime = turtlebot_inputs.nanoSecs;
-		*soundValue = RECHARGE; 
+	}
+
+
+	std::cout << "linearAccelX: " << turtlebot_inputs.linearAccelX << "\n";
+	std::cout << "linearAccelY: " << turtlebot_inputs.linearAccelY << "\n";
+	std::cout << "linearAccelZ: " << turtlebot_inputs.linearAccelZ << "\n";
+	std::cout << "angularVelocityX: " << turtlebot_inputs.angularVelocityX << "\n";
+	std::cout << "angularVelocityY: " << turtlebot_inputs.angularVelocityY << "\n";
+	std::cout << "angularVelocityZ: " << turtlebot_inputs.angularVelocityZ << "\n";
+	std::cout << "orientationX: " << turtlebot_inputs.orientationX << "\n";
+	std::cout << "orientationY: " << turtlebot_inputs.orientationY << "\n";
+	std::cout << "orientationZ: " << turtlebot_inputs.orientationZ << "\n";
+	std::cout << "orientationW: " << turtlebot_inputs.orientationW << "\n";
+	
+	if(turtlebot_inputs.leftWheelDropped == 1 || turtlebot_inputs.rightWheelDropped == 1){
+		currentState = 5;
+		*soundValue = ERROR;
 	}
 
 	
@@ -60,7 +76,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			currentState = 3;
 			*vel = 0.0;
 			currentTurnStartTime = turtlebot_inputs.nanoSecs;
-			*soundValue = CLEANINGSTART; 
 		}
 		break;
 	case 2:
@@ -69,7 +84,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 			currentState = 4;
 			*vel = 0.0;
 			currentTurnStartTime = turtlebot_inputs.nanoSecs;
-			*soundValue = CLEANINGEND; 
 		}
 		break;
 	case 3:
@@ -86,6 +100,13 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		if(turtlebot_inputs.nanoSecs >= currentTurnStartTime + turnTime){
 			currentState = 0;
 			*ang_vel = 0.0;
+		}
+		break;
+	case 5:
+		*vel = 0.0;
+		*ang_vel = 0.0;
+		if(turtlebot_inputs.leftWheelDropped == 0 && turtlebot_inputs.rightWheelDropped == 0){
+			currentState = 0;
 		}
 		break;
 	}
