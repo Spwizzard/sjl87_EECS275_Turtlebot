@@ -187,7 +187,7 @@ int main(int argc, char **argv)
   ros::Subscriber my_wheel_drop_subscription= n.subscribe("mobile_base/events/wheel_drop",10,wheelDropCallBack); 
   ros::Subscriber my_bumper_subscription= n.subscribe("mobile_base/events/bumper",10,bumperMessageCallback); 
   ros::Subscriber my_cliff_subscription= n.subscribe("mobile_base/events/cliff",10,cliffCallback); 
-  ros::Subscriber my_imu_subscription= n.subscribe("mobile_base/sensors/imu_data_raw",10,imuCallback); 
+  ros::Subscriber my_imu_subscription= n.subscribe("mobile_base/sensors/imu_data",10,imuCallback); 
   ros::Subscriber my_core_subscription= n.subscribe("mobile_base/sensors/core",10,coreCallback); 
   ros::Subscriber my_odom_subscription= n.subscribe("odom",10,odomCallback); 
   ros::Subscriber my_amcl_subscription= n.subscribe("amcl_pose",10,amclCallback); 

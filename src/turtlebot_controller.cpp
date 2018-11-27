@@ -8,12 +8,17 @@ uint8_t currentState = 0;
 //3 = turning right from left bumper press
 //4 = turning left from right or center bumper press
 //5 = wheel drop state, stop moving until wheel drops are ok
+//6 = stop state, due to obstacle closer than half a meter
+//7 = spin in place state, looking for direction that isn't blocked
 
 uint64_t backupTime = 1000000000;
 uint64_t currentBackupStartTime = 0;
 
 uint64_t turnTime = 2000000000; 
 uint64_t currentTurnStartTime = 0;
+
+uint64_t stopTime = 15000000000; 
+uint64_t currentStopStartTime = 0;
 
 float forwardSpeed = 0.1;
 float backupSpeed = -0.2;
@@ -48,7 +53,7 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	}
 
 
-	std::cout << "linearAccelX: " << turtlebot_inputs.linearAccelX << "\n";
+	/*std::cout << "linearAccelX: " << turtlebot_inputs.linearAccelX << "\n";
 	std::cout << "linearAccelY: " << turtlebot_inputs.linearAccelY << "\n";
 	std::cout << "linearAccelZ: " << turtlebot_inputs.linearAccelZ << "\n";
 	std::cout << "angularVelocityX: " << turtlebot_inputs.angularVelocityX << "\n";
@@ -57,7 +62,20 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	std::cout << "orientationX: " << turtlebot_inputs.orientationX << "\n";
 	std::cout << "orientationY: " << turtlebot_inputs.orientationY << "\n";
 	std::cout << "orientationZ: " << turtlebot_inputs.orientationZ << "\n";
-	std::cout << "orientationW: " << turtlebot_inputs.orientationW << "\n";
+	std::cout << "orientationW: " << turtlebot_inputs.orientationW << "\n";*/
+
+	if(currentState != 6 && currentState != 7){
+		for(int indx=0; indx < 640; indx++) {
+		  	float range = turtlebot_inputs.ranges[indx];
+
+		  	if(range < 0.5){
+		  		currentState = 6;
+		  		*soundValue = RECHARGE;
+		  		currentStopStartTime = turtlebot_inputs.nanoSecs;
+		  		break;
+		  	}
+		}
+	}
 	
 	if(turtlebot_inputs.leftWheelDropped == 1 || turtlebot_inputs.rightWheelDropped == 1){
 		currentState = 5;
@@ -106,6 +124,31 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		*vel = 0.0;
 		*ang_vel = 0.0;
 		if(turtlebot_inputs.leftWheelDropped == 0 && turtlebot_inputs.rightWheelDropped == 0){
+			currentState = 0;
+		}
+		break;
+	case 6:
+		*vel = 0.0;
+		*ang_vel = 0.0;
+		if(turtlebot_inputs.nanoSecs >= currentStopStartTime + stopTime){
+			std::cout << "15 seconds elapsed" << "\n";
+			currentState = 7;
+		}
+		break;
+	case 7:
+		*vel = 0.0;
+		*ang_vel = rightSpeed;
+		std::cout << "should be turning" << "\n";
+		bool obstacleStillThere = false;		
+		for(int indx=0; indx < 640; indx++) {
+	  		float range = turtlebot_inputs.ranges[indx];
+		  	if(range < 0.5){
+		  		std::cout << "obstacle still there" << "\n";
+		  		obstacleStillThere = true;
+		  		break;
+		  	}
+		}
+		if(obstacleStillThere == false){
 			currentState = 0;
 		}
 		break;
