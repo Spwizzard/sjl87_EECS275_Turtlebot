@@ -13,6 +13,13 @@ uint8_t currentState = 0;
 //8 = slow down and start turning
 //9 = stop due to tilt
 
+uint8_t pathFindingState = 3;
+
+//0 = not reached destination
+//1 = reached destination, spinning
+//2 = returning home
+//3 = waiting for next goal
+
 uint64_t backupTime = 1000000000;
 uint64_t currentBackupStartTime = 0;
 
@@ -36,6 +43,8 @@ uint8_t ERROR=4;
 uint8_t CLEANINGSTART=5;
 uint8_t CLEANINGEND=6;
 
+float goalXPos;
+float goalYPos;
 
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel)
  {
@@ -49,11 +58,13 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	int totalIndex = 0;
 	int numPoints = 0;
 
-	if(currentState == 0){
+	/*if(currentState == 0){
 		for(int indx=0; indx < 640; indx++) {
 		  	float range = turtlebot_inputs.ranges[indx];
-		  	if(range < 0.5){
+		  	if(range < 0.5 && range >= 0.0001){
+
 		  		currentState = 6;
+		  		//std::cout << range << std::endl;
 		  		currentStopStartTime = turtlebot_inputs.nanoSecs;
 		  		break;
 		  	}
@@ -68,12 +79,29 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 	if(currentState == 8 && numPoints == 0){
 		currentState = 0;
-	}
+	}*/
 
-	/*if(turtlebot_inputs.linearAccelZ < 9.0){
+	float currentXPos = turtlebot_inputs.x;
+	float currentYPos = turtlebot_inputs.y;
+	float currentAngle = turtlebot_inputs.z_angle;
+
+	std::cout << "x: " << turtlebot_inputs.x << "\n";
+	std::cout << "y: " << turtlebot_inputs.y << "\n";
+	std::cout << "z_angle: " << turtlebot_inputs.z_angle << "\n";
+
+	if(pathFindingState == 3){
+		std::cout << "goalXPos: \n";
+		std::cin >> goalXPos;
+		std::cout << "goalXPos: \n";
+		std::cin >> goalYPos;
+		pathFindingState == 0;
+	}
+	
+	std::cout << turtlebot_inputs.linearAccelZ << std::endl;
+	if(turtlebot_inputs.linearAccelZ < 9.0 && turtlebot_inputs.linearAccelZ >= 0.0001){
 		currentState = 9;
 		*soundValue = ERROR;
-	}*/
+	}
 
 	if(turtlebot_inputs.leftBumperPressed == 1 || turtlebot_inputs.sensor0State == 1){
 		currentState = 1;
@@ -88,7 +116,6 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		currentState = 5;
 	}
 
-	
 	switch(currentState){
 	case 0:
 		*vel = forwardSpeed;
@@ -137,7 +164,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		*vel = 0.0;
 		*ang_vel = 0.0;
 		*soundValue = RECHARGE;
+		//std::cout << "test" << std::endl;
 		if(turtlebot_inputs.nanoSecs >= currentStopStartTime + stopTime){
+			//std::cout << turtlebot_inputs.nanoSecs << std::endl;
+			//std::cout << currentStopStartTime << std::endl;
+
 			currentState = 7;
 		}
 		break;
@@ -172,7 +203,15 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	case 9:
 		*vel = 0.0;
 		*ang_vel = 0.0;
+		if(turtlebot_inputs.linearAccelZ > 9.0){
+			currentState = 0;
+			*soundValue = 7;
+		}
 		break;
+	}
+
+	switch(pathFindingState){
+
 	}
 
 	// Robot forward velocity in m/s
