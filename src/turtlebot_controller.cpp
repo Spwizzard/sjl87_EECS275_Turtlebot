@@ -1,5 +1,7 @@
 #include "minimal_turtlebot/turtlebot_controller.h"
 
+#define PI 3.14159265
+
 uint8_t currentState = 0;
 
 //0 = moving forward
@@ -29,6 +31,9 @@ uint64_t currentTurnStartTime = 0;
 uint64_t stopTime = 15000000000; 
 uint64_t currentStopStartTime = 0;
 
+uint64_t destinationTurnTime = 34000000000; 
+uint64_t currentDestTurnStartTime = 0;
+
 float forwardSpeed = 0.15;
 float slowSpeed = 0.1;
 float backupSpeed = -0.2;
@@ -46,6 +51,9 @@ uint8_t CLEANINGEND=6;
 float goalXPos;
 float goalYPos;
 
+float initialXPos;
+float initialYPos;
+
 void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue, float *vel, float *ang_vel)
  {
 	//Place your code here! you can access the left / right wheel 
@@ -54,11 +62,11 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	
 	//outputs have been set to some default values. Feel free 
 	//to change these constants to see how they impact the robot. 
-	
+
 	int totalIndex = 0;
 	int numPoints = 0;
 
-	/*if(currentState == 0){
+	if(currentState == 0){
 		for(int indx=0; indx < 640; indx++) {
 		  	float range = turtlebot_inputs.ranges[indx];
 		  	if(range < 0.5 && range >= 0.0001){
@@ -79,25 +87,45 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 
 	if(currentState == 8 && numPoints == 0){
 		currentState = 0;
-	}*/
+	}
+
+
 
 	float currentXPos = turtlebot_inputs.x;
 	float currentYPos = turtlebot_inputs.y;
 	float currentAngle = turtlebot_inputs.z_angle;
 
-	std::cout << "x: " << turtlebot_inputs.x << "\n";
-	std::cout << "y: " << turtlebot_inputs.y << "\n";
-	std::cout << "z_angle: " << turtlebot_inputs.z_angle << "\n";
+	if(std::isnan(currentXPos)){
+		return;
+	}
 
 	if(pathFindingState == 3){
 		std::cout << "goalXPos: \n";
 		std::cin >> goalXPos;
-		std::cout << "goalXPos: \n";
+		std::cout << "goalYPos: \n";
 		std::cin >> goalYPos;
-		pathFindingState == 0;
+		goalXPos = float(goalXPos);
+		goalYPos = float(goalYPos);
+		initialXPos = currentXPos;
+		initialYPos = currentYPos;
+		pathFindingState = 0;
+	}
+
+	currentAngle = -2* atan2(turtlebot_inputs.orientation_omega, currentAngle) * 180 / PI;
+	if(currentAngle < 0){
+		currentAngle += 360;
+	}
+	if(currentAngle > 180){
+		currentAngle -= 180;
+	}
+	else if(currentAngle <= 180){
+		currentAngle += 180;
+	}
+	float goalAngle =  atan2(goalYPos - currentYPos , goalXPos - currentXPos) * 180 / PI;
+	if(goalAngle < 0){
+		goalAngle = 360 + goalAngle;
 	}
 	
-	std::cout << turtlebot_inputs.linearAccelZ << std::endl;
 	if(turtlebot_inputs.linearAccelZ < 9.0 && turtlebot_inputs.linearAccelZ >= 0.0001){
 		currentState = 9;
 		*soundValue = ERROR;
@@ -116,21 +144,41 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 		currentState = 5;
 	}
 
+
 	switch(currentState){
 	case 0:
-		*vel = forwardSpeed;
-		*ang_vel = 0.0;
+		if(pathFindingState == 0 || pathFindingState == 2){
+			if(goalAngle - currentAngle > 10){
+				*vel = 0.0;
+				*ang_vel = leftSpeed / 3;
+			}
+			else if(goalAngle - currentAngle < -10){
+				*vel = 0.0;
+				*ang_vel = rightSpeed / 3;
+			}
+			else{
+				*vel = forwardSpeed;
+				*ang_vel = 0.0;
+			}
+		}
+		else if(pathFindingState == 1){
+			*vel = 0.0;
+			*ang_vel = rightSpeed;
+		}
 		break;
 	case 1:
 		*vel = backupSpeed;
+		*ang_vel = leftSpeed;
 		if(turtlebot_inputs.nanoSecs >= currentBackupStartTime + backupTime){
 			currentState = 3;
 			*vel = 0.0;
+
 			currentTurnStartTime = turtlebot_inputs.nanoSecs;
 		}
 		break;
 	case 2:
 		*vel = backupSpeed;
+		*ang_vel = rightSpeed;
 		if(turtlebot_inputs.nanoSecs >= currentBackupStartTime + backupTime){
 			currentState = 4;
 			*vel = 0.0;
@@ -211,7 +259,35 @@ void turtlebot_controller(turtlebotInputs turtlebot_inputs, uint8_t *soundValue,
 	}
 
 	switch(pathFindingState){
-
+	case 0:
+		if(std::isnan(currentXPos) || std::isnan(currentYPos)){
+			std::cout << "ALERT " << "\n";
+			break;
+		}
+		if((fabs(currentXPos - goalXPos) < 0.1) && (fabs(currentYPos - goalYPos) < 0.1)){
+			pathFindingState = 1;
+			currentDestTurnStartTime = turtlebot_inputs.nanoSecs;
+		}
+		break;
+	case 1:
+		if(turtlebot_inputs.nanoSecs >= currentDestTurnStartTime + destinationTurnTime){
+			pathFindingState = 2;
+			goalXPos = initialXPos;
+			goalYPos = initialYPos;
+			std::cout << "new goal: " << goalXPos << "," << goalYPos << std::endl;
+		}
+		break;
+	case 2:
+		if(std::isnan(currentXPos) || std::isnan(currentYPos)){
+			std::cout << "ALERT " << "\n";
+			break;
+		}
+		if((fabs(currentXPos - goalXPos) < 0.1) && (fabs(currentYPos - goalYPos) < 0.1)){
+			pathFindingState = 3;
+		}
+		break;
+	case 3:
+		break;
 	}
 
 	// Robot forward velocity in m/s

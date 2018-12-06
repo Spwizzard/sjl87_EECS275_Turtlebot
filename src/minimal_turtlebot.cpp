@@ -27,7 +27,7 @@ void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& pose)
 
 void odomCallback(const nav_msgs::Odometry& pose) 
 { 
-	if (!amcl_present && startUpTimer > 150)
+	if (!amcl_present && startUpTimer > 0)
 	{
 		localTurtleBotInputs.x = pose.pose.pose.position.x; 
 		localTurtleBotInputs.y = pose.pose.pose.position.y; 
